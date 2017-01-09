@@ -1,8 +1,10 @@
 require 'socket'
 
 CODE = {
-    00.chr*4 => :name, 
-    9.chr + 00.chr*3 => :lobby
+    "0000" => :name, 
+    "0002" => :oocmessage,
+    "9100" => :oocmessage,
+    "9000" => :lobby
 }
 
 class GameClient
@@ -13,17 +15,26 @@ class GameClient
 	end
 	
 	def run
-		send 00.chr*4, @nickname
+		send "0000", @nickname
+		Thread.new do
+		    loop {
+		       msg = @server.read(516)
+		       code = CODE[msg[0..3]]
+		       msg = msg[4..-1]
+		       
+		       case code
+		       when :lobby
+		           puts "Waiting on " + msg[0].ord.to_s +  " players"
+		       when :oocmessage
+				   nick,msg = msg.split(00.chr)
+				   puts nick + ": (( " + msg.chomp + " ))"
+		       else
+		       end
+		    }
+	    end
 	    loop {
-	       msg = @server.read(516)
-	       code = CODE[msg[0..3]]
-	       msg = msg[4..-1]
-	       
-	       case code
-	       when :lobby
-	           puts "Waiting on " + msg[0].ord.to_s +  " players"
-	       else
-	       end
+	    	command = gets
+	    	send("0002",command)
 	    }
 	end
 	

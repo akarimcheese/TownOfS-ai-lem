@@ -9,10 +9,12 @@ require 'socket'
 # 0002[Message] - OOC Chat Message
 # 9000[Number] - Number of users needed to start
 # 9001 - Game is full
-# 9002[Role] - Starting Game, Assigned Role
+# 9002 - Name taken
+# 9003[Role] - Starting Game, Assigned Role
+# 9100[Name]\00[Message] - Message broadcast
 
 CODE = {
-    00.chr*3 + 2.chr => :oocmessage, 
+    "0002" => :oocmessage, 
 }
 
 class GameServer
@@ -61,11 +63,16 @@ class GameServer
 			Thread.start(@server.accept) do |client|
 			    if (@clients.size >= 15) then
 			        # Later make it so others can watch
-			        client.write 9.chr + 0.chr*2 + 1.chr + 0.chr*512
+			        client.write "9001" + 0.chr*512
 			        return
 			    end
 			    puts client.addr 
 				nick,throwaway = (client.read(516)[4..-1]).chomp.split(00.chr)
+				
+			    if (@clients.value?(nick)) then
+			    	client.write "9002" + 0.chr*512
+			        return
+			    end
 				@clients[client] = nick
 				puts nick 
 				
@@ -77,15 +84,22 @@ class GameServer
 	def gameThread
 	    Thread.new do
 	        loop {
-	            puts "SLEEPING"
-	            sleep(10)
-	            puts "BROADCASTING"
-	            puts (@minPlayers - @clients.size)
-	            if (@minPlayers - @clients.size > 0) then
-	                broadcast(9.chr + 00.chr*3, (@minPlayers - @clients.size).chr)
-	            else
-	                @state = :starting
-	            end
+	        	case @state
+	        	when :lobby
+		            puts "SLEEPING"
+		            sleep(10)
+		            puts "BROADCASTING"
+		            puts (@minPlayers - @clients.size)
+		            if (@minPlayers - @clients.size > 0) then
+		                broadcast("9000", (@minPlayers - @clients.size).chr)
+		            else
+		                @state = :starting
+		                assignRoles
+		            end
+		        when :starting
+		        	sleep(15)
+		        else
+		        end
 	        }
 	    end
 	end
@@ -104,7 +118,7 @@ class GameServer
 	    @clients.keys.shuffle.each { |sock|
 	        role = @@roles[i].sample
 	        @players[sock] = role
-	        send(9.chr + 0.chr*2 + 2.chr, role.to_s, sock)
+	        send("9003", role.to_s, sock)
 	        i = i + 1
 	    }
 	end
@@ -127,10 +141,11 @@ class GameServer
 				return
 			end
 			
-			#case CODE[data[0..3]]
-			#when :oocmessage
-			#else
-			#end
+			case CODE[data[0..3]]
+			when :oocmessage
+				broadcast("9100",@clients[client] + 00.chr + data[4..-1].split(00.chr)[0])
+			else
+			end
 			
 		}
 	end
