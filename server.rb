@@ -293,10 +293,26 @@ class GameServer
 		        when :starting
 		        	sleep(15)
 		        	@state = :night
+		        # When it's night, give each player 30 seconds to complete their night actions
+		        when :night
+		        	sleep(30)
+		        	@state = :day
+		        # When it's day, give people time to discuss the events and make accusations/claims
+		        when :day
+		        	sleep(30)
+		        	@state = :voting
+		        # Give people 15 seconds to make their votes
+		        when :voting
+		        	sleep(15)
+		        	@state = :night
 		        else
 		        end
 	        }
 	    end
+	end
+	
+	# Check if someone won the game
+	def gameWinner?
 	end
 	
 	# Send everyone a message
