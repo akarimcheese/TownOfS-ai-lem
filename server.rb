@@ -72,6 +72,8 @@ require 'socket'
 # 0215 - No
 # 0216 - I don't know
 # 0217 - Prove you are a spy (only works if you are a spy)
+## Emotes
+# 0301[Msg] - Say hi in the form of Msg
 #### Actions Descriptions
 # 1001[Night]\00[Target] - The Death of Target
 # 1002[Night]\00[Target1]\00[Target2 (Optional)] - Target2 (Sheriff) investigated Targeted 1, found to be nonsuspicious
@@ -110,10 +112,12 @@ require 'socket'
 # 1035[Night]\00[Target1]\00[Target2] - Target2 (Bodyguard) guarded Target1
 # 1035[Night]\00[Target1]\00[Target2] - Target2 (Bodyguard) died guarding Target1
 #
+# 8000\00[n] - It is the nth night
+#
 # 9000[Number] - Number of users needed to start
 # 9001 - Game is full
-# 9002 - Name taken
-# 9003[Role] - Starting Game, Assigned Role
+# 9002 - Name taken/Too Long
+# 9003[Role](\00[Name])* - Starting Game, Assigned Role, List of all other players
 # 9100[Name]\00[Message] - OOC Message broadcast
 
 ACTIONS = { :claim => {
@@ -240,6 +244,7 @@ class GameServer
 	    gameThread
 		loop {
 			Thread.start(@server.accept) do |client|
+				# If we have 15 clients, we can't accept any more
 			    if (@clients.size >= 15) then
 			        # Later make it so others can watch
 			        client.write "9001" + 0.chr*512
@@ -248,13 +253,17 @@ class GameServer
 			    puts client.addr 
 				nick,throwaway = (client.read(516)[4..-1]).chomp.split(00.chr)
 				
-			    if (@clients.value?(nick) && nick[0..3] !=~ /^\d{4}$/) then
+				# If the name is taken or is too long, they have to provide a new one
+			    if ((@clients.value?(nick) && nick[0..3] !=~ /^\d{4}$/) || nick.length > 16) then
 			    	client.write "9002" + 0.chr*512
 			        return
 			    end
+			    
+			    # Store each client's nickname
 				@clients[client] = nick
 				puts nick 
 				
+				# Listen to each client
 				listen(client)
 			end
 		}
@@ -264,17 +273,23 @@ class GameServer
 	    Thread.new do
 	        loop {
 	        	case @state
+	        	# We are in lobby when we are waiting for enough players to start the game
 	        	when :lobby
 		            puts "SLEEPING"
+		            # Check every 10 seconds to see if we have enough players
 		            sleep(10)
 		            puts "BROADCASTING"
 		            puts (@minPlayers - @clients.size)
+		            # If we don't have enough players, let them know how many we are waiting on
 		            if (@minPlayers - @clients.size > 0) then
 		                broadcast("9000", (@minPlayers - @clients.size).chr)
+		            # Once we have enough players, assign roles
 		            else
 		                @state = :starting
 		                assignRoles
 		            end
+		        # When we start the game, give players 15 seconds to initialize their AIs 
+		        # and have them say Hi before nightfall
 		        when :starting
 		        	sleep(15)
 		        	@state = :night
@@ -284,6 +299,7 @@ class GameServer
 	    end
 	end
 	
+	# Send everyone a message
 	def broadcast(code, msg)
 	    remainder = 512 - msg.length
 	    @clients.each_pair { |sock,nick|
@@ -295,14 +311,21 @@ class GameServer
 	
 	def assignRoles
 	    i = 0
+	    # Make a readable list of the roster for everyone to receive
+	    roster = @clients.values.map{|name| 00.chr + name}.join
+	    # Rearrange the clients randomly
 	    @clients.keys.shuffle.each { |sock|
+	    	# Give each client a role
 	        role = @@roles[i].sample
+	        # Keep track of their role
 	        @players[sock] = role
-	        send("9003", role.to_s, sock)
+	        # Inform them of their role
+	        send("9003", role.to_s + roster, sock)
 	        i = i + 1
 	    }
 	end
 	
+	# Send a message to a single recipient
 	def send(code,msg,client)
 	    remainder = 512 - msg.length
 	    puts "sending" + code + msg + 00.chr*remainder
@@ -310,23 +333,28 @@ class GameServer
 	    puts "sent"
 	end
 	
+	# Listen to a client
 	def listen (client)
 		loop {
 			data = nil
 			data = client.read(516)
 			
+			# If socket closes, say so
 			if (!data)
 				puts @clients[client] + " disconnected"
 				@clients.delete(client)
 				return
 			end
 			
+			# If we receive a message from a client, broadcast it to everyone
 			case CODE[data[0..3]]
 			when :ooc_broadcast
 				broadcast("9100",@clients[client] + 00.chr + data[4..-1].split(00.chr)[0])
 			when :ic_broadcast
 				broadcast("9200",@clients[client] + 00.chr + data[4..-1].split(00.chr)[0])
 			else
+				# If we receive an action, broadcast that action
+				# We will need to change this for night actions and murders and things
 				puts "GOT ACTION"
 				broadcast(data[0..3],@clients[client])
 			end

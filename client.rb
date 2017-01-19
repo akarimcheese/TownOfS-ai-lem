@@ -117,7 +117,7 @@ require 'socket'
 
 CODE = {
 	"0000" => :name,
-    	"0002" => :ooc_broadcast,
+    "0002" => :ooc_broadcast,
 	"0003" => :ic_broadcast,
 	"0004" => :ic_whisper_message,
 	"0101" => lambda {|args| "#{args[0]} claims to be a Sheriff!" },
@@ -168,6 +168,7 @@ CODE = {
 	"9001" => :game_full,
 	"9002" => :name_taken,
 	"9003" => :starting,
+	"9004" => :roster,
 	"9100" => :ooc_broadcast,
 	"9200" => :ic_broadcast,
 	"9201" => :ic_whisper_message,
@@ -236,22 +237,62 @@ ACTIONS = { :claim => {
 }
 
 
+# The class that will be used when the client is chosen to be a Jester
 class JesterBrain
-	def initialize(client)
+	# Initialize with the client and nickname chosen
+	def initialize(client,name)
+		# The night number
 		@night = 1
-		@state = :starting
-		@playerGuesses = {}
-		@playerTrust = {}
+		# What state the game is
+		@gameState = :starting
+		# A hash of players and information/opinions about them
+		@players = {}
+		# A log of events that have occured in the game
 		@eventLog = []
+		# The client to send messages from
 		@client = client
+		# The state of the current player
+		@state = :alive
+		# Current player's name
+		@name = name
+		# People the jester can choose from to kill from the afterlife
+		@victims = nil
+	end
+	
+	# Once given the roster of players, make a hash entry for each player
+	def processRoster(roster)
+		roster.each {|player|
+			@players[player] = {:guess => nil, :trust => 0.5, :state => :alive} unless player == @ame
+		}
 	end
 	
 	def act
-		case @state
+		case @gameState
 		when :starting
 			@client.send(ACTIONS[:claim][:self][:role][:jester],"")
-		else 
+		when :night
+			if @state == :revenge
+				# kill someone who voted against you
+				# @victims.sample
+				@state = :dead
+			end
+		when :day
 		end
+	end
+	
+	# If we are voted to be executed, we will have a chance to kill one of the people who voted against us
+	def executed (victims)
+		@victims = victims
+		@state = :revenge
+	end
+	
+	# We choose someone to vote for execution
+	def vote
+		@players.keys.select {|x| @players[x][:state] == :alive}.sample
+	end
+	
+	def turnsNight
+		@gameState = :night
 	end
 end
 
@@ -265,7 +306,9 @@ class GameClient
 	end
 	
 	def run
+		# Tell the server our name
 		send "0000", @nickname
+		# We need to handle what to do when our nickname is taken or game is full
 		Thread.new do
 		    loop {
 		       puts "Waiting to read"
@@ -276,27 +319,44 @@ class GameClient
 		       msg = msg[4..-1]
 		       
 		       case code
+		       # If we're waiting on others, inform user of how many others
 		       when :lobby
 		           puts "Waiting on " + msg[0].ord.to_s +  " players"
+		       # If name is taken, tell user
+		       # We need to allow the user to change their name
 		       when :name_taken
 		       		puts "name is taken"
+		       # If the game is full, tell user
 		       when :game_full
 		       		puts "game is full"
+		       # If we received an OOC message, show it to user in (( this form ))
 		       when :ooc_broadcast
 		       		puts "printing ooc"
 				   nick,msg = msg.split(00.chr)
 				   puts nick + ": (( " + msg.chomp + " ))"
+			   # If we received an IC message, show it to user
 			   when :ic_broadcast
 			   	   nick,msg = msg.split(00.chr)
 			   	   puts nick + ": " + msg.chomp
+			   # Game is starting
 			   when :starting
-					role,junk = msg.split(00.chr)
+			   		# Separate roster string into array
+					roster = msg.split(00.chr)
+					# Extract your given role
+					role = roster.shift
+					# Set the AI up to your role
 					setRole(role)
 					puts "Your role is: " + role
+			   		puts "Roster is #{roster.inspect}"
+			   		# Allow your AI to initialize the roster 
+			   		@brain.processRoster(roster)
 		       else
+		       		# Otherwise, we have an action that maps to a lambda expression.
+		       		# Args for the function is provided in message from server.
 		       		args = msg.split(00.chr).flatten
 		       		puts code.call(args)
-		       		#@brain.process(code,args)
+		       		# We need to set up the brain to process events
+		       		# @brain.process(code,args)
 		       end
 		    }
 	    end
@@ -306,15 +366,16 @@ class GameClient
 	    }
 	end
 	
+	# Right now we're just working on the Jester class due to the simplicity
 	def setRole(role)
 		case role
 		when "jester"
 			puts "JESTER"
-			@brain = JesterBrain.new(self)
+			@brain = JesterBrain.new(self,@nickname)
 			@brain.act
 			puts "JESTER"
 		else
-			@brain  = JesterBrain.new(self)
+			@brain  = JesterBrain.new(self,@nickname)
 			puts "to do"
 		end
 	end
