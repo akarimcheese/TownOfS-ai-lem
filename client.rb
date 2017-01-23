@@ -72,6 +72,10 @@ require_relative 'brains'
 # 0215 - No
 # 0216 - I don't know
 # 0217 - Prove you are a spy (only works if you are a spy)
+#### Perform Action
+# 0901[Target] - Investiage Target as Sheriff
+# 0905 - Doctor heals self
+# 0906[Target] - Doctor heals Target
 #### Actions Descriptions
 # 1001[Night]\00[Target] - The Death of Target
 # 1002[Night]\00[Target1]\00[Target2 (Optional)] - Target2 (Sheriff) investigated Targeted 1, found to be nonsuspicious
@@ -165,6 +169,9 @@ CODE = {
 	"0150" => lambda {|args| "#{args[0]} claims #{args[1]} is a Serial Killer!" },
 	"0151" => lambda {|args| "#{args[0]} claims #{args[1]} is a Townie!" },
 	"0152" => lambda {|args| "#{args[0]} claims #{args[1]} is part of the Mafia!" },
+	"0901" => lambda {|args| "#{args[0]} is investigating #{args[1]} tonight!" },
+	"0905" => lambda {|args| "#{args[0]} will be healing themself tonight!" },
+	"0906" => lambda {|args| "#{args[0]} will be healing #{args[1]} tonight!" },
 	"9000" => :lobby,
 	"9001" => :game_full,
 	"9002" => :name_taken,
@@ -176,7 +183,19 @@ CODE = {
 	"9202" => :ic_whisper_observation
 }
 
-ACTIONS = { :claim => {
+ACTIONS = { 
+			:roleAct => {
+				:sheriff => {
+					:investigate => "0901"
+				},
+				:doctor => {
+					:heal => {
+						:self => "0905",
+						:other => "0906"
+					}
+				}
+			},
+			:claim => {
 				:self => {
 					:role => {
 						:sheriff => "0101",
