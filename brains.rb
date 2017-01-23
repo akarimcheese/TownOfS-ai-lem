@@ -79,8 +79,9 @@ class DumbBrain
 		# Current player's name
 		@name = name
 		
-		@docCanSaveSelf = true
+		@canSaveSelf = true
 		@firstNight = true
+		@veteranUses = 3
 	end
 	
 	# Once given the roster of players, make a hash entry for each player
@@ -103,32 +104,54 @@ class DumbBrain
 		    when :sheriff
 		        @client.send(ACTIONS[:roleAct][:sheriff][:investigate],randomPlayer)
 		    when :doctor
-		        if @docCanSaveSelf && Random.rand(100) > 75 
+		        if @canSaveSelf && Random.rand(100) > 75 
 		            @client.send(ACTIONS[:roleAct][:doctor][:heal][:self],"")
-		            @docCanSaveSelf = false
+		            @canSaveSelf = false
 		        else
 		            @client.send(ACTIONS[:roleAct][:doctor][:heal][:other],randomPlayer)
 		        end
 		    when :investigator
 		        @client.send(ACTIONS[:roleAct][:investigator][:investigate],randomPlayer)
 		    when :jailor
+		        # Low priority
 		    when :medium
+		        # Low priority
 		    when :godfather
+		        if Random.rand(100) > 50 then
+		            @client.send(ACTIONS[:roleAct][:godfather][:plot],randomPlayer)
+		        end
 		    when :framer
+		        @client.send(ACTIONS[:roleAct][:framer][:frame],randomPlayer)
 		    when :executioner
+		        # No action
 		    when :escort
 		        @client.send(ACTIONS[:roleAct][:escort][:block],randomPlayer)
 		    when :mafioso
+		        @client.send(ACTIONS[:roleAct][:mafioso][:plot],randomPlayer)
 		    when :lookout
+		        @client.send(ACTIONS[:roleAct][:lookout][:monitor],randomPlayer)
 		    when :serialkiller
 		    when :veteran
+		        if @veteranUses > 0 && Random.rand(100) > 45 then
+		            @client.send(ACTIONS[:roleAct][:veteran][:alert],"")
+		            @veteranUses = @veteranUses - 1
+		        end
 		    when :vigilante
 		    when :jester
+		        # No action UNLESS TAKING REVENGE
 		    when :bodyguard
-		    when :investigator
+		        if @canSaveSelf && Random.rand(100) > 75 
+		            @client.send(ACTIONS[:roleAct][:bodyguard][:protect][:self],"")
+		            @canSaveSelf = false
+		        else
+		            @client.send(ACTIONS[:roleAct][:bodyguard][:protect][:other],randomPlayer)
+		        end
 		    when :mayor
+		        # No action
 		    when :retributionist
+		        # Low priority
 		    when :spy
+		        # Low priority
 		    when :transporter
 		    end
 		    @firstNight = false

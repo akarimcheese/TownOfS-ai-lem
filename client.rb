@@ -77,7 +77,14 @@ require_relative 'brains'
 # 0905 - Doctor heals self
 # 0906[Target] - Doctor monitors Target
 # 0908[Target] - Investigate Target as Investigator
+# 0922[Target] - Framer will frame Target
 # 0924[Target] - Distract Target as Escort
+# 0926[Target] - Lookout will montior Target's residence
+# 0927 - Veteran is on alert
+# 0934 - Bodyguard protects self
+# 0935[Target] - Bodyguard protects Target
+# 0936[Target] - Godfather plots for Target's death
+# 0937[Target] - Mafioso plots for Target's death
 #### Actions Descriptions
 # 1001[Night]\00[Target] - The Death of Target
 # 1002[Night]\00[Target1]\00[Target2 (Optional)] - Target2 (Sheriff) investigated Targeted 1, found to be nonsuspicious
@@ -114,7 +121,7 @@ require_relative 'brains'
 # 1033[Night]\00[Target1]\00[Target2 (Optional)] - Target1 was role block immune from Target2's role block
 # 1034[Night]\00[Target1]\00[Target2] - Target1 was killed by Target2
 # 1035[Night]\00[Target1]\00[Target2] - Target2 (Bodyguard) guarded Target1
-# 1035[Night]\00[Target1]\00[Target2] - Target2 (Bodyguard) died guarding Target1
+# 1036[Night]\00[Target1]\00[Target2] - Target2 (Bodyguard) died guarding Target1
 #
 # 9000[Number] - Number of users needed to start
 # 9001 - Game is full
@@ -175,7 +182,14 @@ CODE = {
 	"0905" => lambda {|args| "#{args[0]} will be monitoring themself tonight!" },
 	"0906" => lambda {|args| "#{args[0]} will be monitoring #{args[1]} tonight!" },
 	"0908" => lambda {|args| "#{args[0]} is investigating #{args[1]} tonight as the Investigator!" },
+	"0922" => lambda {|args| "#{args[0]} is framing #{args[1]} tonight!" },
 	"0924" => lambda {|args| "#{args[0]} is role blocking #{args[1]} tonight as the Escort!" },
+	"0926" => lambda {|args| "#{args[0]} is monitoring #{args[1]}'s residence!" },
+	"0927" => lambda {|args| "#{args[0]} is on alert tonight!" },
+	"0934" => lambda {|args| "#{args[0]} protects themself tonight!" },
+	"0935" => lambda {|args| "#{args[0]} protects #{args[1]} tonight!" },
+	"0936" => lambda {|args| "#{args[0]} wants #{args[1]} dead tonight!" },
+	"0937" => lambda {|args| "#{args[0]} wants #{args[1]} dead tonight!" },
 	"9000" => :lobby,
 	"9001" => :game_full,
 	"9002" => :name_taken,
@@ -203,6 +217,27 @@ ACTIONS = {
 				},
 				:escort => {
 					:block => "0924"
+				},
+				:lookout => {
+					:monitor => "0926"	
+				},
+				:bodyguard => {
+					:protect => {
+						:self => "0934",
+						:other => "0935"
+					}	
+				},
+				:veteran => {
+					:alert => "0927"	
+				},
+				:godfather => {
+					:plot => "0936"
+				},
+				:mafioso => {
+					:plot => "0937"
+				},
+				:framer => {
+					:frame => "0922"
 				}
 			},
 			:claim => {
