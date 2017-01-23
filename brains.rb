@@ -80,6 +80,7 @@ class DumbBrain
 		@name = name
 		
 		@docCanSaveSelf = true
+		@firstNight = true
 	end
 	
 	# Once given the roster of players, make a hash entry for each player
@@ -92,6 +93,11 @@ class DumbBrain
 	def act
 		case @gameState
 		when :starting
+		    case @role
+		    when :jailor
+		        randomPlayer
+		    else
+		    end
 		when :night
 		    case @role
 		    when :sheriff
@@ -104,12 +110,14 @@ class DumbBrain
 		            @client.send(ACTIONS[:roleAct][:doctor][:heal][:other],randomPlayer)
 		        end
 		    when :investigator
+		        @client.send(ACTIONS[:roleAct][:investigator][:investigate],randomPlayer)
 		    when :jailor
 		    when :medium
 		    when :godfather
 		    when :framer
 		    when :executioner
 		    when :escort
+		        @client.send(ACTIONS[:roleAct][:escort][:block],randomPlayer)
 		    when :mafioso
 		    when :lookout
 		    when :serialkiller
@@ -123,6 +131,7 @@ class DumbBrain
 		    when :spy
 		    when :transporter
 		    end
+		    @firstNight = false
 		when :day
 		end
 	end
